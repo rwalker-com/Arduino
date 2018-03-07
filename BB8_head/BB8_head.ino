@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <Encoder.h>
 #include "MechaQMC5883.h"
 #include "TrapezoidalMotion.h"
 
@@ -12,17 +13,20 @@ static MechaQMC5883 magnetometer;
 static const int zeroPin = 6; // aka D6
 
 // wiring implies
-static const int headPin = 9; // aka D9
-static Servo head;
-static TrapezoidalMotion headAngle;
+static const int azServoPin = 9; // aka D9
+static Servo azServo;
+static TrapezoidalMotion azMotion;
 
-static const double headMax = 60.0;
-static const double headMin = -60.0;
+static const double azServoMax = 60.0;
+static const double azServoMin = -60.0;
+
+static const double incMoverMax = 45.0;
+static const double incMoverMin = -45.0;
 
 // update frequency, up to 500
 static const long hz = 20;
 
-// head servo maxV, from spec sheet, is 0.13secs/60 degrees
+// azimuth servo maxV, from spec sheet, is 0.13secs/60 degrees
 //   seconds/60 degrees
 //     ** divide by 60 gets us
 //   seconds/degree
@@ -32,7 +36,7 @@ static const long hz = 20;
 //   degress/cycle
 //
 static const double maxV = (1/(0.13/60))/hz;
-// head acceleration, higher value, jerkier response, test with full system
+// azimuthServo acceleration, higher value, jerkier response, test with full system
 static const double maxA = maxV/50;
 
 class PiConn {
@@ -40,16 +44,19 @@ private:
    char   buf_[32];
    int    idx_;
    int    age_;
-   double angle_;
+   double azimuth_;
+   double inclination_;
 
 public:
-   void init(double angle, int age) {
+   void init(double azimuth, double inclination, int age) {
       idx_ = 0;
       age_ = age;
+      azimuth_ = azimuth;
+      inclination_ = inclination;
       Serial1.begin(9600);
    }
 
-   int read(double& angle, unsigned long deadline) {
+   int read(double& azimuth, double& inclination, unsigned long deadline) {
       int input;
 
       age_++;
@@ -60,7 +67,12 @@ public:
             idx_ = 0;
 
             if (*buf_ == 'a') {
-               angle_ = atof(buf_+1);
+               azimuth_ = atof(buf_+1);
+               age_ = 0;
+               break;
+            }
+            if (*buf_ == 'i') {
+               inclination_ = atof(buf_+1);
                age_ = 0;
                break;
             }
@@ -70,7 +82,9 @@ public:
             idx_ %= sizeof(buf_);
          }
       }
-      angle = angle_;
+      azimuth = azimuth_;
+      inclination = inclination_;
+
       return age_;
    }
 };
@@ -83,52 +97,46 @@ void setup() {
    Serial.begin(115200);
 
    magnetometer.init(); // default settings are continuous reads, max range
-   piconn.init(0, hz/2); // initialize with zero and "old"
+   piconn.init(0, 0, hz/2); // initialize with zero and "old"
 
-   head.attach(headPin);
-   head.write(90);
+   azServo.attach(azServoPin);
+   azServo.write(90);
 
-   headAngle.init(0.0, maxV, maxA);
+   azMotion.init(0.0, maxV, maxA);
 
    pinMode(zeroPin, INPUT_PULLUP);
 
 }
 
+#define clamp(x, min, max) (((x)<(min))?(min):((x)>(max))?(max):(x))
+
 void loop() {
    unsigned long start = millis();
    unsigned long deadline = start + 1000/hz;
 
-   int16_t x, y, z; //triple axis data
-   magnetometer.read(&x, &y, &z);
-   //   Serial.print(x/100); Serial.print(" ");
-   //   Serial.print(y/100); Serial.print(" ");
-   //   Serial.print(z/100); Serial.print(" ");
+   double azimuth = 0;
+   double inclination = 0;
 
+   // see if the Pi has some azimuth data for me
+   /*int age = */ piconn.read(azimuth, inclination, deadline);
 
-   // arctan and convert radians to degrees
-   double magnet = atan2(y, x) * 180/M_PI;
-   Serial.print(magnet); Serial.print(" ");
+   Serial.print(azimuth); Serial.print(" ");
+   Serial.print(inclination); Serial.print(" ");
 
-   double piangle = 0;
+   if (LOW == digitalRead(zeroPin)) {
+      azimuth = inclination = 0;
+   }
+   // clamp azimuth and inclination to hardware limits
+   azimuth = clamp(azimuth, azServoMin, azServoMax);
+   inclination = clamp(inclination, incMoverMin, incMoverMax);
 
-   // see if the Pi has some angle data for me
-   int piage = piconn.read(piangle, deadline);
+   azimuth = azMotion.next(azimuth);
 
-   Serial.print(piangle); Serial.print(" ");
+   azServo.write(90+azimuth);
 
-   double target =
-      (LOW == digitalRead(zeroPin)) ? 0 :
-      (piage < hz/2) ? piangle : magnet;
+   Serial.print(azimuth); Serial.print(" ");
+   Serial.print(inclination); Serial.print(" ");
 
-   // clamp servo input
-   if (target > headMax) target = headMax;
-   if (target < headMin) target = headMin;
-
-   double angle = headAngle.next(target);
-
-   head.write(90+angle);
-
-   Serial.print(angle); Serial.print(" ");
    Serial.println();
 
    unsigned long now = millis();
