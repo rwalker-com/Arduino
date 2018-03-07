@@ -1,13 +1,7 @@
 #include <Servo.h>
 #include <Encoder.h>
-#include "MechaQMC5883.h"
 #include "TrapezoidalMotion.h"
 
-
-// Assumption: magnet's North/South poles are aligned with the sensor's
-// X axis, with North pole being *negative* X
-static MechaQMC5883 magnetometer;
-// our reader, on I2C pins
 
 // zero the servo
 static const int zeroPin = 6; // aka D6
@@ -92,11 +86,9 @@ public:
 static PiConn piconn;
 
 void setup() {
-   Wire.begin(); // annoyed that I have to reach around my I2C objects
 
    Serial.begin(115200);
 
-   magnetometer.init(); // default settings are continuous reads, max range
    piconn.init(0, 0, hz/2); // initialize with zero and "old"
 
    azServo.attach(azServoPin);
