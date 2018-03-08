@@ -1,21 +1,41 @@
 #include <Servo.h>
 #include <Encoder.h>
 #include "TrapezoidalMotion.h"
+#include "md10c.h"
 
+// pin setup is for an Arduino Pro Micro, we also consume Serial2
+//  which is on pins 1 and 0
 
 // zero the servo
-static const int zeroPin = 6; // aka D6
+static const int zeroPin = 6; // aka D6, digitalRead()
 
-// wiring implies
-static const int azServoPin = 9; // aka D9
+// other wiring....
+static const int azServoPin = 9; // aka D9, PWM output
+
+// encoder takes 2 interrupt pins
+static const int incEncoderPin1 = 3; // aka SCL
+static const int incEncoderPin2 = 7;
+
+// motor controller takes 2 digital pins
+static const int incMCDirPin   = 4;
+static const int incMCSpeedPin = 5;
+
+
+// azimuth
 static Servo azServo;
 static TrapezoidalMotion azMotion;
 
 static const double azServoMax = 60.0;
 static const double azServoMin = -60.0;
 
+// inclination motor controller
+static MD10C   incMC(incMCDirPin, incMCSpeedPin);
+static Encoder incEncoder(incEncoderPin1, incEncoderPin2);
+
 static const double incMoverMax = 45.0;
 static const double incMoverMin = -45.0;
+
+
 
 // update frequency, up to 500
 static const long hz = 20;
@@ -84,6 +104,8 @@ public:
 };
 
 static PiConn piconn;
+
+
 
 void setup() {
 

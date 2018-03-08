@@ -7,9 +7,9 @@ static ADXL335 accel;
 
 static void setup()
 {
-   accel.init(A0, A1, A2);
+  accel.init(A0, A1, A2);
 
-   Serial.begin(115200);
+  Serial.begin(115200);
 }
 
 static void _loop()

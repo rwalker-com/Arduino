@@ -1,11 +1,10 @@
 #include "md10c.h"
 
-static MD10C motor;
+static MD10C motor(4,/* aka D4, direction */
+                   3 /* aka D3, pwm */);
 
 static void setup(void)
 {
-   motor.init(4 /* aka D4, direction */,
-              3 /* aka D3, pwm */);
    Serial.begin(115200);
 }
 
