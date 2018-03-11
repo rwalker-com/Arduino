@@ -1,9 +1,13 @@
 #include <Servo.h>
+#define ENCODER_USE_INTERRUPTS
 #include <Encoder.h>
 #include "TrapezoidalMotion.h"
 #include "md10c.h"
 
-// pin setup is for an Arduino Pro Micro, we also consume Serial2
+/////////////////////////////////////////////////////////////////////
+// pinout
+
+// pin setup is for an Arduino Pro Micro, we also consume Serial1
 //  which is on pins 1 and 0
 
 // zero the servo
@@ -20,25 +24,16 @@ static const int incEncoderPin2 = 7;
 static const int incMCDirPin   = 4;
 static const int incMCSpeedPin = 5;
 
-
-// azimuth
-static Servo azServo;
-static TrapezoidalMotion azMotion;
-
-static const double azServoMax = 60.0;
-static const double azServoMin = -60.0;
-
-// inclination motor controller
-static MD10C   incMC(incMCDirPin, incMCSpeedPin);
-static Encoder incEncoder(incEncoderPin1, incEncoderPin2);
-
-static const double incMoverMax = 45.0;
-static const double incMoverMin = -45.0;
-
-
-
-// update frequency, up to 500
+/////////////////////////////////////////////////////////////////////
+// program update frequency, up to 500
 static const long hz = 20;
+
+/////////////////////////////////////////////////////////////////////
+// azimuth
+
+// read azimuth from serial, output a Servo signal via a trapezoidal
+//    motion smoother
+
 
 // azimuth servo maxV, from spec sheet, is 0.13secs/60 degrees
 //   seconds/60 degrees
@@ -49,10 +44,64 @@ static const long hz = 20;
 //     ** divide by hz gets us
 //   degress/cycle
 //
-static const double maxV = (1/(0.13/60))/hz;
-// azimuthServo acceleration, higher value, jerkier response, test with full system
-static const double maxA = maxV/50;
+static const double azMaxV = (1/(0.13/60))/hz;
+// azimuthServo acceleration, higher value=jerkier response, test with full system
+static const double azMaxA = azMaxV/50;
 
+static TrapezoidalMotion azMotion(0.0, maxV, maxA);
+static Servo azServo;
+
+static const double azMax = 60.0;
+static const double azMin = -60.0;
+
+/////////////////////////////////////////////////////////////////////
+// inclination
+
+
+// read inclination from serial, map to a motor controller/encoder pair
+//   that comprise a linear actuator
+
+// motor max speed is 1621RPM, screw is 8mm/revolution, we're defining
+//  the center of the actuator as "zero"
+
+
+// the screw is 8mm/revolution, runs in a straight line, but the trolley
+//   follows an arc, so degrees are not exactly one-to-one
+// the motor ratio is 5.182:1, 12 cycles per motor revolution, so
+//   62.184 cycles/revolution of the screw
+//
+// max velocity:
+//  events/rev * revs/min * min/sec
+//
+//   248.736   *  1621    * 1/60     = 6270.0176 events/sec
+//
+//
+//  mm/rev     * revs/min * min/sec
+//
+//    8        *  1621    * 1/60     = 216 mm/s, or 8.5 in/s
+//
+//  maximum head deflection = 8inches or 19deg deflection each way
+//
+//   in  *  mm/in  * revs/mm  * events/rev
+//
+//    8  *  25.4   *   1/8    * 248.736   = 6317.8944 count for max deflection
+//
+//
+
+static const double incEncoderCyclesPerDegree = 6312.8944/19;
+
+// inclination motor controller
+static MD10C   incMC(incMCDirPin, incMCSpeedPin);
+static Encoder incEncoder(incEncoderPin1, incEncoderPin2);
+
+static const double incMax = 19.0;
+static const double incMin = -19.0;
+
+static const int32_t incMaxCycles = 1579;
+static const int32_t incMinCycles = 1579;
+
+
+// this class could be generalized to a line-reading scanf(), maybe templated
 class PiConn {
 private:
    char   buf_[32];
@@ -62,12 +111,11 @@ private:
    double inclination_;
 
 public:
-   void init(double azimuth, double inclination, int age) {
+   PiConn(double azimuth, double inclination, int age) {
       idx_ = 0;
       age_ = age;
       azimuth_ = azimuth;
       inclination_ = inclination;
-      Serial1.begin(9600);
    }
 
    int read(double& azimuth, double& inclination, unsigned long deadline) {
@@ -103,20 +151,17 @@ public:
    }
 };
 
-static PiConn piconn;
-
+static PiConn piconn(0,0,hz/2);
 
 
 void setup() {
 
    Serial.begin(115200);
-
-   piconn.init(0, 0, hz/2); // initialize with zero and "old"
+   Serial1.begin(9600);
 
    azServo.attach(azServoPin);
    azServo.write(90);
 
-   azMotion.init(0.0, maxV, maxA);
 
    pinMode(zeroPin, INPUT_PULLUP);
 
@@ -140,13 +185,21 @@ void loop() {
    if (LOW == digitalRead(zeroPin)) {
       azimuth = inclination = 0;
    }
+
    // clamp azimuth and inclination to hardware limits
-   azimuth = clamp(azimuth, azServoMin, azServoMax);
-   inclination = clamp(inclination, incMoverMin, incMoverMax);
+   azimuth = clamp(azimuth, azMin, azMax);
+   inclination = clamp(inclination, incMin, incMax);
 
    azimuth = azMotion.next(azimuth);
-
    azServo.write(90+azimuth);
+
+   {
+      int32_t pos = incEncoder.read();
+
+
+      azTilter.write(inclination);
+   }
+
 
    Serial.print(azimuth); Serial.print(" ");
    Serial.print(inclination); Serial.print(" ");

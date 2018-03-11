@@ -18,7 +18,7 @@ public:
    //            of magnitude smaller than the range you'll be targeting
    //    * the higher the rate at which you sample
    //
-   void init(double initial, double maxV, double maxA) {
+   TrapezoidalMotion(double initial, double maxV, double maxA) {
       maxV_  = maxV;
       maxA_  = maxA;
       prev_  = initial;
