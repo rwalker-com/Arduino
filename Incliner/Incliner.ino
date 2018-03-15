@@ -1,40 +1,23 @@
-#define ENCODER_USE_INTERRUPTS
-#include <Encoder.h>
-#include "md10c.h"
+// Copyright rwalker@rwalker.com 2018
+//
 
+static const int hz = 20;
 
-#define clamp(x, min, max) (((x)<(min))?(min):((x)>(max))?(max):(x))
+#define INCLINER_PLOT 1
+#include "Incliner.h"
 
-class Incliner {
-   Encoder* encoder_;
-   MD10C*   motor_;
-   double   pulsesPerDegree_;
+#include "HzLoop.h"
 
+#define PLOT 1
+class Plotter {
 public:
-   Incliner(Encoder* encoder, MD10C* motor,
-            double pulsesPerDegree){
-      motor_ = motor;
-      encoder_ = encoder;
-      pulsesPerDegree_ = pulsesPerDegree;
+   void plot(double x) {
+      if (PLOT) { Serial.print(x); Serial.print(" "); }
    }
 
-   void write(double angle) {
-      angle *= pulsesPerDegree_;
-
-      int32_t enc = encoder_->read();
-      int32_t run = ((int32_t)angle) - enc;
-
-      Serial.print(enc); Serial.print(" ");
-      Serial.print(angle); Serial.print(" ");
-
-      run = clamp(run, -255, 255);
-      if (abs(run) < 20) run = 0;
-
-      Serial.print(run); Serial.print(" ");
-
-      motor_->run((int)run);
+   ~Plotter() {
+      if (PLOT) Serial.println();
    }
-
 };
 
 
@@ -43,27 +26,24 @@ void setup(void)
    Serial.begin(115200);
 }
 
-
 void loop(void)
 {
-   static Encoder e(2, 3);
-   static MD10C m(5, 6);
-
-   static Incliner incliner(&e, &m, 6313/19);
+   HzLoop hzloop(hz);
+   Plotter p; // automatic variable, destructor does Serial.println()
+   static Incliner incliner(2, 3,   // encoder
+                            5, 6);  // motor
 
    static int count = 0;
    static long target = 0;
 
-   if (count++ > 50) { /* change location once a second */
+   if (count++ > 30) { /* change location once every 600ms */
       count = 0;
       target = random(-19, 19);
    }
 
    double ftarget = target;
-   Serial.print(ftarget); Serial.print(" ");
+   p.plot(ftarget);
 
    incliner.write(ftarget);
 
-   Serial.println();
-   delay(20);
 }

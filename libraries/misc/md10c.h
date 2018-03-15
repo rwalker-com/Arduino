@@ -1,4 +1,6 @@
 // Copyright rwalker@rwalker.com 2018
+#ifndef _MD10C_H
+#define _MD10C_H
 //
 //  only understands direction and speed mode
 //
@@ -20,6 +22,7 @@ class MD10C {
       pinMode(dirPin_, OUTPUT);
    }
    void run(int speed) {
+      constrain(speed, -255, 255);
 
       digitalWrite(dirPin_, speed >= 0 ? HIGH : LOW);
 
@@ -27,3 +30,4 @@ class MD10C {
    }
 
 };
+#endif //#ifndef _MD10C_H
