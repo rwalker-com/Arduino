@@ -56,7 +56,7 @@ private:
 
    // calculated from motor
    static const double maxV_ = 6270.0176/hz;
-   static const double maxA_ = maxV_/10; // good rule of thumb
+   static const double maxA_ = maxV_/5; // good rule of thumb
 
    static const double maxDeflection_ = 6317.8944;
    static const double minDeflection_ = -6317.8944;
@@ -84,20 +84,22 @@ private:
 
       angle *= pulsesPerDegree_;
 
-      constrain(angle, minDeflection_, maxDeflection_);
+      angle = constrain(angle, minDeflection_, maxDeflection_);
+      plot(angle);
 
       angle = angle_.next(angle);
       plot(angle);
 
+
       int32_t enc = encoder_.read();
       plot(enc);
-
 
       double run = angle - enc; // pwm signal, using error as motor speed
                                 // won't work in general, does here because
                                 // pulses/turn is pretty high
 
       plot(run);
+
       motor_.run(run);
    }
 

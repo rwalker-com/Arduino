@@ -21,8 +21,10 @@ class MD10C {
       pinMode(pwmPin_, OUTPUT);
       pinMode(dirPin_, OUTPUT);
    }
-   void run(int speed) {
-      constrain(speed, -255, 255);
+
+   void run(double speed) {
+
+      speed = constrain(speed, -255.0, 255.0);
 
       digitalWrite(dirPin_, speed >= 0 ? HIGH : LOW);
 

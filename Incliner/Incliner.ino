@@ -31,7 +31,7 @@ void loop(void)
    HzLoop hzloop(hz);
    Plotter p; // automatic variable, destructor does Serial.println()
    static Incliner incliner(2, 3,   // encoder
-                            5, 6);  // motor
+                            4, 5);  // motor
 
    static int count = 0;
    static long target = 0;

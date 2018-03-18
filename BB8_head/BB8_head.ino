@@ -48,15 +48,15 @@ static const double azMaxV = (1/(0.13/60))/hz;
 // azimuthServo acceleration, higher value=jerkier response, test with full system
 static const double azMaxA = azMaxV/50;
 
-static TrapezoidalMotion azMotion(0.0, maxV, maxA);
+static TrapezoidalMotion azMotion(0.0, azMaxV, azMaxA);
 static Servo azServo;
 
 static const double azMax = 60.0;
 static const double azMin = -60.0;
 
 
-#define INCLINER_PLOT 1
-#include "Incliner.h"
+//#define INCLINER_PLOT 1
+//#include "Incliner.h"
 
 
 // this class could be generalized to a line-reading scanf(), maybe templated
@@ -85,6 +85,8 @@ public:
          if ('\r' == input || '\n' == input) {
             buf_[idx_] = '\0';
             idx_ = 0;
+
+            Serial.println(buf_);
 
             if (*buf_ == 'a') {
                azimuth_ = atof(buf_+1);
@@ -134,8 +136,8 @@ void loop() {
    // see if the Pi has some azimuth and/or data for me
    piconn.read(azimuth, inclination, deadline);
 
-   Serial.print(azimuth); Serial.print(" ");
-   Serial.print(inclination); Serial.print(" ");
+   //   Serial.print(azimuth); Serial.print(" ");
+   //   Serial.print(inclination); Serial.print(" ");
 
    if (LOW == digitalRead(zeroPin)) {
       azimuth = inclination = 0;
@@ -147,13 +149,12 @@ void loop() {
    azimuth = azMotion.next(azimuth);
    azServo.write(90+azimuth);
 
+   //   incliner.write(inclination);
 
-   incliner.write(inclination);
+   //   Serial.print(azimuth); Serial.print(" ");
+   //   Serial.print(inclination); Serial.print(" ");
 
-   Serial.print(azimuth); Serial.print(" ");
-   Serial.print(inclination); Serial.print(" ");
-
-   Serial.println();
+   //   Serial.println();
 
    unsigned long now = millis();
    if (now < deadline) {
