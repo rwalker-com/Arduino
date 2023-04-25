@@ -1,8 +1,16 @@
 #include <Servo.h>
-#define ENCODER_USE_INTERRUPTS
-#include <Encoder.h>
+
+/////////////////////////////////////////////////////////////////////
+// program update frequency, up to 500
+static const long hz = 20;
+
+#define INCLINER_PLOT 1
+#define INCLINER_RUN  1
+#include "Incliner.h"
+
 #include "TrapezoidalMotion.h"
-#include "md10c.h"
+#include "HzLoop.h"
+
 
 /////////////////////////////////////////////////////////////////////
 // pinout
@@ -10,23 +18,17 @@
 // pin setup is for an Arduino Pro Micro, we also consume Serial1
 //  which is on pins 1 and 0
 
-// zero the servo
-static const int zeroPin = 6; // aka D6, digitalRead()
-
 // other wiring....
-static const int azServoPin = 9; // aka D9, PWM output
+static const int azServoPin = 6; // aka D6, PWM output
 
 // encoder takes 2 interrupt pins
-static const int incEncoderPin1 = 3; // aka SCL
-static const int incEncoderPin2 = 7;
+static const int incEncoderPin1 = 2; // aka SCL
+static const int incEncoderPin2 = 3;
 
 // motor controller takes 2 digital pins
 static const int incMCDirPin   = 4;
 static const int incMCSpeedPin = 5;
 
-/////////////////////////////////////////////////////////////////////
-// program update frequency, up to 500
-static const long hz = 20;
 
 /////////////////////////////////////////////////////////////////////
 // azimuth
@@ -45,7 +47,8 @@ static const long hz = 20;
 //   degress/cycle
 //
 static const double azMaxV = (1/(0.13/60))/hz;
-// azimuthServo acceleration, higher value=jerkier response, test with full system
+// azimuthServo acceleration, higher value=jerkier response, test and tune
+//   with full system, do not start higher than V/10
 static const double azMaxA = azMaxV/50;
 
 static TrapezoidalMotion azMotion(0.0, azMaxV, azMaxA);
@@ -54,9 +57,6 @@ static Servo azServo;
 static const double azMax = 60.0;
 static const double azMin = -60.0;
 
-
-//#define INCLINER_PLOT 1
-//#include "Incliner.h"
 
 
 // this class could be generalized to a line-reading scanf(), maybe templated
@@ -111,7 +111,19 @@ public:
    }
 };
 
-void setup() {
+#define PLOT 1
+class Plotter {
+public:
+   void plot(double x) {
+      if (PLOT) { Serial.print(x); Serial.print(" "); }
+   }
+
+   ~Plotter() {
+      if (PLOT) Serial.println();
+   }
+};
+
+void setup(void) {
 
    Serial.begin(115200);
    Serial1.begin(9600);
@@ -119,45 +131,36 @@ void setup() {
    azServo.attach(azServoPin);
    azServo.write(90);
 
-   pinMode(zeroPin, INPUT_PULLUP);
-
 }
 
-void loop() {
+void loop(void) {
+   HzLoop hzloop(hz); // automatic, dtor does delay(xx)
+   Plotter p; // automatic variable, destructor does Serial.println()
+
    static PiConn piconn(0, 0, hz/2);
-
-
-   unsigned long start = millis();
-   unsigned long deadline = start + 1000/hz;
+   static Incliner incliner(incEncoderPin1, incEncoderPin2,
+                            incMCDirPin, incMCSpeedPin);
 
    double azimuth = 0;
    double inclination = 0;
 
    // see if the Pi has some azimuth and/or data for me
-   piconn.read(azimuth, inclination, deadline);
+   int age = piconn.read(azimuth, inclination, hzloop.deadline());
 
-   //   Serial.print(azimuth); Serial.print(" ");
-   //   Serial.print(inclination); Serial.print(" ");
-
-   if (LOW == digitalRead(zeroPin)) {
-      azimuth = inclination = 0;
+   if (age > hz) {
+      azimuth = 0;
+      inclination = 0;
    }
+
+   p.plot(azimuth);
+   p.plot(inclination);
 
    // clamp azimuth and inclination to hardware limits
    azimuth = constrain(azimuth, azMin, azMax);
 
    azimuth = azMotion.next(azimuth);
+
    azServo.write(90+azimuth);
 
-   //   incliner.write(inclination);
-
-   //   Serial.print(azimuth); Serial.print(" ");
-   //   Serial.print(inclination); Serial.print(" ");
-
-   //   Serial.println();
-
-   unsigned long now = millis();
-   if (now < deadline) {
-      delay(deadline - now);
-   }
+   incliner.write(inclination);
 }

@@ -1,3 +1,7 @@
+// Copyright rwalker@rwalker.com 2018
+//
+#ifndef _TRAPEZOIDALMOTION_H
+#define _TRAPEZOIDALMOTION_H
 // class provides a Trapezoidal motion curve to a changing target
 //
 class TrapezoidalMotion {
@@ -103,3 +107,5 @@ private:
    double prevV_;
 
 };
+
+#endif //#ifndef _TRAPEZOIDALMOTION_H

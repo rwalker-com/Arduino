@@ -13,22 +13,31 @@ class MD10C {
 
    int dirPin_;
    int pwmPin_;
+   int minPWM_;
 
  public:
-   MD10C(/*int mode,*/int dirPin, int pwmPin) {
+   MD10C(/*int mode,*/int dirPin, int pwmPin, int minPWM) {
       dirPin_ = dirPin;
       pwmPin_ = pwmPin;
+      minPWM_ = minPWM;
       pinMode(pwmPin_, OUTPUT);
       pinMode(dirPin_, OUTPUT);
    }
 
-   void run(double speed) {
+   MD10C(/*int mode,*/int dirPin, int pwmPin) {
+      MD10C(dirPin, pwmPin, 0);
+   }
 
-      speed = constrain(speed, -255.0, 255.0);
+   void run(double pwm) {
 
-      digitalWrite(dirPin_, speed >= 0 ? HIGH : LOW);
+      pwm = constrain(pwm, -255.0, 255.0);
 
-      analogWrite(pwmPin_, speed >= 0 ? speed : -speed);
+      digitalWrite(dirPin_, pwm >= 0 ? HIGH : LOW);
+
+      pwm = abs(pwm);
+
+      if (pwm < minPWM_) { pwm = 0; }
+      analogWrite(pwmPin_, pwm);
    }
 
 };
