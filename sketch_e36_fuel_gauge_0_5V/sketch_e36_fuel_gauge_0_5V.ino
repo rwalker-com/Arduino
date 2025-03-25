@@ -1,6 +1,6 @@
 
 //
-// Written to run on an attiny85
+// Written to run on an Arduino Nano
 //
 //  0-5V needs to be mapped to variable resistance between 50 and 500 ohms
 //
@@ -9,9 +9,9 @@
 //     target a particular voltage (0.444V = empty, 3.33V = full)
 //
 namespace sender {
-   static const int pin  = A1;    // 0-5V signal (0-1023) pin read 0 == empty
+   static const int pin  = A1;   // 0-5V signal (0-1023) pin read 0 == empty
    static const int full = 1023; // analog 5V read of sender
-   static const int empty = 4;   // analog 0.02V (1023*0.02/5) which is ~1.5 gal left in tank, 
+   static const int empty = 4;   // analog 0.02V (1023*0.02/5) which is ~1.5 gal left in tank,
                                  //  gives us some margin 'cuz lift pumps are a bitch
 }
 
