@@ -9,7 +9,9 @@
   servo controller in that way: i.e. it shows zero for a few seconds then goes
   to full speed, more like an on-off switch when power is applied.
 
-  Take ESC servo line (the powered one, if the ESC has 2).  Connect red to VIN, black to GND, and signal to PCINT1.
+  Take ESC servo line (the powered one, if the ESC has 2).  Connect red to VIN, black to GND, and signal to PCINT1.  A 100uF 
+  capacitor should be placed between the reset pin and GND to delay boot of the Arduino while the ESC is booting/stabilizing
+  it's power supply.
 
 */
 
